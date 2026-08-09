@@ -13,6 +13,7 @@
   <a href="architecture.html">Architecture</a>
   <a href="stages.html" class="active">Stages</a>
   <a href="interview.html">Interview Q&amp;A</a>
+  <a href="guide.html">Player Guide</a>
 </nav>
 
 <div class="page">
@@ -151,43 +152,53 @@ apps/web/src/game/
 
     <div class="stage-item">
       <div class="stage-dot-wrap">
-        <div class="stage-dot next">3</div>
+        <div class="stage-dot complete">3</div>
         <div class="stage-line"></div>
       </div>
       <div class="stage-body">
-        <span class="badge badge-next">→ Next</span>
+        <span class="badge badge-complete">✓ Complete</span>
         <h3>Stage 3 — Meteor vertical slice</h3>
         <p>The complete core emotional loop works end to end.</p>
         <div class="card" style="margin-top:1rem">
-          <h4>To deliver</h4>
+          <h4>Delivered</h4>
           <ul>
-            <li>Meteor creation form (category selector + text input)</li>
-            <li>Server-side safety gate (placeholder classifier)</li>
-            <li>Meteor persisted to PostgreSQL and broadcast to world</li>
-            <li>Player discovers and reads a meteor</li>
-            <li>Player selects a predefined response</li>
-            <li>Server validates: one resonance per player per meteor</li>
-            <li>Meteor → Star transition broadcast to all relevant clients</li>
-            <li>Writer receives private <em>"Someone heard you."</em></li>
-            <li>Helper receives <em>+1 Light</em></li>
-            <li>All state persists across refresh / reconnect</li>
+            <li>Meteor creation form — category selector (Burden / Moment / Hope / Gratitude) + 280-character text input with live counter</li>
+            <li>Server-side safety classifier — keyword-based blocklist gates <code>high_risk</code> content before DB write; <code>sensitive</code> content passes with metadata</li>
+            <li>Meteor persisted to PostgreSQL (<code>meteors</code> table) and broadcast to all connected clients via <code>meteor:created</code></li>
+            <li>Interaction zone detection — player walks near a meteor glow, press E to read it</li>
+            <li>Meteor read form — shows category, anonymous content, five predefined responses</li>
+            <li>Server validates: owner cannot acknowledge own meteor; one resonance per player per meteor (DB unique constraint)</li>
+            <li>Meteor → Star transition: <code>meteor:acknowledged</code> + <code>star:created</code> broadcast to all clients simultaneously</li>
+            <li>Writer receives private <code>notification:heard</code> — "Someone heard you." toast</li>
+            <li>Acknowledger receives <code>light:earned</code> — <code>✦ 1 Light</code> HUD counter</li>
+            <li>All state (meteors, stars) persists across refresh / reconnect — loaded on <code>world:snapshot</code></li>
+            <li>Five interaction zones repositioned to be immediately visible from spawn</li>
+            <li>Session identity switched to <code>sessionStorage</code> so each browser tab is an independent player</li>
+            <li>New DB migration: <code>users.session_token</code> (unique), <code>players.user_id</code> unique constraint</li>
+            <li>66 tests passing — 47 server (WorldState, multiplayer, classifier, meteor lifecycle) + 19 web (physics)</li>
           </ul>
-          <h4 style="margin-top:1rem">Definition of Done for MVP</h4>
-          <ol style="font-size:.9rem;color:var(--text-muted);margin-left:1.2rem;">
-            <li>Two browsers connect to the same server</li>
-            <li>Player A moves — Player B sees it</li>
-            <li>Player A creates a safe meteor</li>
-            <li>Player B sees it</li>
-            <li>Player B acknowledges it</li>
-            <li>Both clients see the meteor → star transition</li>
-            <li>Player A receives "Someone heard you"</li>
-            <li>Player B receives Light</li>
-            <li>State persists across refresh/reconnect</li>
-            <li>Duplicate acknowledgments are rejected</li>
-            <li>Invalid movement is rejected</li>
-            <li>Unsafe content never becomes public</li>
-            <li>Core server rules have automated test coverage</li>
-          </ol>
+          <h4 style="margin-top:1rem">New files</h4>
+          <pre style="margin:.5rem 0 0"><code>apps/game-server/src/
+  db/client.ts          pg Pool singleton
+  db/queries.ts         8 typed async DB functions
+  safety/classifier.ts  keyword-based safety gate
+
+apps/web/src/
+  components/MeteorCreateForm.tsx
+  components/MeteorReadForm.tsx
+  components/NotificationToast.tsx
+  game/network.ts        (full rewrite — meteor events, session token)
+  game/engine.ts         (full rewrite — meteors, stars, E-key routing)
+  game/renderer.ts       (updated — category colors, star glow, interaction prompt)
+
+database/migrations/
+  002_session_tokens.sql</code></pre>
+          <h4 style="margin-top:1rem">Success criterion — met</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            Two browser tabs open the same game. Tab A creates a meteor. Tab B walks to it and acknowledges it.
+            Both see the meteor become a star. Tab B shows <em>✦ 1 Light</em>. Tab A shows <em>"Someone heard you."</em>
+            All state survives page refresh. 66/66 tests pass.
+          </p>
         </div>
       </div>
     </div>
