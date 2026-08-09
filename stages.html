@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — Stages</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html">Overview</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="stages.html" class="active">Stages</a>
+  <a href="interview.html">Interview Q&amp;A</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <h1>Development Stages</h1>
+  <p style="color:var(--text-muted);margin-bottom:2.5rem;">
+    Each stage has a clear success criterion that proves a specific assumption before building on top of it.
+  </p>
+
+  <div class="stage-list">
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot complete">0</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-complete">✓ Complete</span>
+        <h3>Stage 0 — Foundation</h3>
+        <p>Clean monorepo. Nothing gameplay-related.</p>
+        <div class="card" style="margin-top:1rem">
+          <h4>Delivered</h4>
+          <ul>
+            <li>npm workspaces monorepo (<code>apps/web</code>, <code>apps/game-server</code>, <code>packages/protocol</code>, <code>packages/shared-types</code>)</li>
+            <li>Next.js 14 web client with TypeScript strict mode</li>
+            <li>Node.js game server with Express + Socket.IO</li>
+            <li>Typed end-to-end Socket.IO protocol contract</li>
+            <li><code>GET /health</code> endpoint on game server</li>
+            <li>PostgreSQL 16 via Docker Compose (host port 5433)</li>
+            <li>Full database schema — 8 tables with constraints and indexes</li>
+            <li>vitest test suite — 8 tests covering HTTP and Socket.IO</li>
+            <li>ESLint + Prettier across all packages</li>
+            <li><code>npm run dev</code> starts both servers concurrently</li>
+          </ul>
+          <h4 style="margin-top:1rem">Success criterion</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            A developer can clone the repo, run four commands, and have a working foundation with tests passing and PostgreSQL healthy.
+          </p>
+          <h4 style="margin-top:1rem">Ports</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            Web: <code>:3000</code> &nbsp;·&nbsp; Game server: <code>:3001</code> &nbsp;·&nbsp; PostgreSQL: <code>:5433</code>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot complete">1</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-complete">✓ Complete</span>
+        <h3>Stage 1 — Single-player world</h3>
+        <p>A player can comfortably walk around a small 2D world.</p>
+        <div class="card" style="margin-top:1rem">
+          <h4>Delivered</h4>
+          <ul>
+            <li>Pure Canvas 2D rendering — no game library, no external dependencies</li>
+            <li>World: 3840 × 2880 px (120 × 90 tiles at 32 px each)</li>
+            <li>Player avatar — glowing blue-white orb with radial glow effect</li>
+            <li>WASD + arrow key movement with diagonal normalisation</li>
+            <li>Camera that follows the player, clamped to world bounds</li>
+            <li>Collision: player cannot leave the world rectangle</li>
+            <li>Five interaction zone stubs — golden glowing circles, "Press E" prompt when near</li>
+            <li>DPR-aware canvas sizing (crisp on Retina/HiDPI screens)</li>
+            <li>Deterministic procedural star field — consistent as camera moves</li>
+            <li>19 unit tests for all pure game logic functions</li>
+          </ul>
+          <h4 style="margin-top:1rem">Module structure</h4>
+          <pre style="margin:.5rem 0 0"><code>apps/web/src/game/
+  constants.ts   world size, speed, radii
+  types.ts       GameState, PlayerState, Camera, InteractionZone
+  input.ts       InputHandler — keyboard, diagonal normalisation
+  physics.ts     movePlayer, computeCamera, detectNearbyZone, tick (pure)
+  renderer.ts    Canvas 2D — stars, grid, glow, zones, HUD
+  engine.ts      GameEngine — owns loop, input, state, renderer
+
+apps/web/src/
+  hooks/useGame.ts          React hook — lifecycle + resize
+  components/GameCanvas.tsx 'use client' canvas mount point</code></pre>
+          <h4 style="margin-top:1rem">Key design decision</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            All movement, collision, and camera logic lives in <code>physics.ts</code> as pure functions — no DOM, no React, no Canvas. This makes them trivially testable and keeps them ready to accept server-authoritative positions in Stage 2 without rewriting the rendering layer.
+          </p>
+          <h4 style="margin-top:1rem">Success criterion — met</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            A single player can walk around a 3840 × 2880 world with smooth 60 fps movement and camera follow. 19/19 physics tests pass.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot complete">2</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-complete">✓ Complete</span>
+        <h3>Stage 2 — Realtime multiplayer</h3>
+        <p>Multiple clients share the same world in real time.</p>
+        <div class="card" style="margin-top:1rem">
+          <h4>Delivered</h4>
+          <ul>
+            <li>Socket.IO connection lifecycle — join, leave, reconnect with auto-resume</li>
+            <li>Server-authoritative player positions via <code>WorldState</code> (in-memory)</li>
+            <li>Movement broadcasting — Player A moves, all other clients see <code>player:moved</code></li>
+            <li>World snapshot on connect — joining client receives all current players</li>
+            <li>Client-side position interpolation (lerp at 12 Hz → smooth remote movement)</li>
+            <li>Session token stored in <code>localStorage</code> — persists across page refreshes</li>
+            <li>Remote players rendered as lavender orbs (distinct from local blue-white)</li>
+            <li>HUD shows live player count</li>
+            <li>Server validates movement magnitude (rejects teleport attempts)</li>
+            <li>15 new server tests (18 WorldState unit + 8 multiplayer socket integration) + 19 existing physics tests = 53 total</li>
+          </ul>
+          <h4 style="margin-top:1rem">New files</h4>
+          <pre style="margin:.5rem 0 0"><code>apps/game-server/src/game/
+  constants.ts     PLAYER_SPEED, MAP dimensions, MAX_DT
+  worldState.ts    WorldState — in-memory authoritative player map
+
+apps/web/src/game/
+  network.ts       NetworkClient — Socket.IO client, session token, sendMove</code></pre>
+          <h4 style="margin-top:1rem">Protocol change</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            <code>PlayerMovePayload</code> changed from cardinal direction enum to <code>{dx, dy, dt, sequence}</code> — continuous normalised vector + frame delta, matching the client physics model. Server clamps <code>dt ≤ MAX_DT</code> and rejects moves where <code>√(dx²+dy²) > 1</code>.
+          </p>
+          <h4 style="margin-top:1rem">Success criterion — met</h4>
+          <p style="font-size:.9rem;color:var(--text-muted)">
+            Multiple browser tabs connect to the same server. Each can move. All see each other's movement in real time. 53/53 tests pass.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot next">3</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-next">→ Next</span>
+        <h3>Stage 3 — Meteor vertical slice</h3>
+        <p>The complete core emotional loop works end to end.</p>
+        <div class="card" style="margin-top:1rem">
+          <h4>To deliver</h4>
+          <ul>
+            <li>Meteor creation form (category selector + text input)</li>
+            <li>Server-side safety gate (placeholder classifier)</li>
+            <li>Meteor persisted to PostgreSQL and broadcast to world</li>
+            <li>Player discovers and reads a meteor</li>
+            <li>Player selects a predefined response</li>
+            <li>Server validates: one resonance per player per meteor</li>
+            <li>Meteor → Star transition broadcast to all relevant clients</li>
+            <li>Writer receives private <em>"Someone heard you."</em></li>
+            <li>Helper receives <em>+1 Light</em></li>
+            <li>All state persists across refresh / reconnect</li>
+          </ul>
+          <h4 style="margin-top:1rem">Definition of Done for MVP</h4>
+          <ol style="font-size:.9rem;color:var(--text-muted);margin-left:1.2rem;">
+            <li>Two browsers connect to the same server</li>
+            <li>Player A moves — Player B sees it</li>
+            <li>Player A creates a safe meteor</li>
+            <li>Player B sees it</li>
+            <li>Player B acknowledges it</li>
+            <li>Both clients see the meteor → star transition</li>
+            <li>Player A receives "Someone heard you"</li>
+            <li>Player B receives Light</li>
+            <li>State persists across refresh/reconnect</li>
+            <li>Duplicate acknowledgments are rejected</li>
+            <li>Invalid movement is rejected</li>
+            <li>Unsafe content never becomes public</li>
+            <li>Core server rules have automated test coverage</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot planned">4</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-planned">Planned</span>
+        <h3>Stage 4 — Personal space</h3>
+        <p>Players can use Light to grow a personal garden.</p>
+        <div class="card" style="margin-top:1rem">
+          <h4>To deliver</h4>
+          <ul>
+            <li>Light inventory UI</li>
+            <li>Cosmetic item shop (unlock with Light)</li>
+            <li>Personal garden zone — place items, arrange space</li>
+            <li>Persistence of garden layout</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot planned" style="background:rgba(248,113,113,.12);color:var(--red);border-color:var(--red)">5</div>
+        <div class="stage-line"></div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-safety">Required before public beta</span>
+        <h3>Stage 5 — Safety hardening</h3>
+        <p>Production-grade safety, moderation, and privacy. <strong>No public beta without this.</strong></p>
+        <div class="card" style="margin-top:1rem">
+          <h4>To deliver</h4>
+          <ul>
+            <li>Report action on every published meteor</li>
+            <li>Moderation states: visible → reported → hidden_pending_review → removed</li>
+            <li>Rate limiting on all state-changing operations</li>
+            <li>Abuse prevention</li>
+            <li>Crisis flow with verified region-appropriate resources</li>
+            <li>Privacy: data deletion, session token expiry</li>
+            <li>Moderation test suite with realistic edge cases</li>
+            <li>Safety review by a qualified person</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-item">
+      <div class="stage-dot-wrap">
+        <div class="stage-dot planned">6+</div>
+      </div>
+      <div class="stage-body">
+        <span class="badge badge-planned">Future</span>
+        <h3>Stages 6–10 — Growth</h3>
+        <p>Afterlights (star groupings), Living Library, world simulation, scaling infrastructure, public beta.</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<footer>Afterlight &mdash; Stage roadmap</footer>
+</body>
+</html>

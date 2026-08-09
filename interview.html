@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — Interview Q&A</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html">Overview</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="stages.html">Stages</a>
+  <a href="interview.html" class="active">Interview Q&amp;A</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <h1>Interview Q&amp;A</h1>
+  <p style="color:var(--text-muted);margin-bottom:2.5rem;">
+    Answers written as first-person explanations — the way you'd deliver them in a technical or product interview.
+    Click any question to expand.
+  </p>
+
+  <!-- ── System Design ─────────────────────────────────────────────────── -->
+  <div class="qa-section">
+    <h2>System Design &amp; Architecture</h2>
+
+    <details>
+      <summary>Walk me through the overall architecture of Afterlight.</summary>
+      <div class="qa-answer">
+        <p>Afterlight is a client-server realtime system with a clear separation of concerns. The browser is purely a presentation and input layer — it renders what the server tells it to render and sends user intents upward. There are three main components: a Next.js web client, a separate Node.js game server, and PostgreSQL for durable state.</p>
+        <p>The browser communicates with the game server exclusively over Socket.IO. Every player action travels up as an intent message — "I want to move right", "I want to acknowledge this meteor" — the server validates it, updates the authoritative in-memory world state, broadcasts the result to relevant connected clients, and persists any durable changes to PostgreSQL.</p>
+        <p>The codebase is a monorepo with two apps and two shared packages. The <code>@afterlight/protocol</code> package defines the complete typed Socket.IO event contract — both client-to-server and server-to-client — so TypeScript catches interface mismatches at compile time before they become runtime bugs. The <code>@afterlight/shared-types</code> package defines domain types like <code>MeteorCategory</code> and <code>Position</code> that are used consistently throughout.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why did you separate the game server from the Next.js application?</summary>
+      <div class="qa-answer">
+        <p>Different performance characteristics and different scaling concerns. A Next.js app handles request-response cycles optimised for rendering HTML and serving static assets — it has per-request lifecycles, SSR, and edge caching concerns. A game server runs a continuous simulation loop, maintains persistent connections for potentially thousands of players, and needs to process game events at 20 ticks per second with low latency. Mixing them means you can't scale them independently, you can't tune runtime settings separately, and you can't reason about their resource consumption in isolation.</p>
+        <p>There's also an architectural purity argument: the game engine shouldn't have any knowledge of HTTP routing, SSR, or React's rendering model. Keeping them separate enforces this boundary and makes both systems easier to understand and test.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What does "server-authoritative" mean, and why does it matter here?</summary>
+      <div class="qa-answer">
+        <p>Server-authoritative means the server is the single source of truth for all game state. The client never claims its own position, Light balance, meteor ownership, or reward amounts. It only sends <em>intents</em>: "I want to move right", not "my position is now 350,200".</p>
+        <p>Why it matters: without this, any player can inject malicious messages claiming they have 10,000 Light, or that their meteor has been acknowledged, or that they're standing at a position that lets them interact with something they shouldn't reach. Server authority prevents this entire class of exploit.</p>
+        <p>For Afterlight specifically, this is even more critical because the emotional integrity of the experience depends on authentic human interaction. A faked acknowledgment would corrupt the original writer's genuine "Someone heard you" moment — something the game's core promise depends on.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why Socket.IO instead of raw WebSocket?</summary>
+      <div class="qa-answer">
+        <p>Three main reasons. First: automatic reconnection. If a player loses their connection mid-session — bad wifi, switching networks, mobile going to sleep — Socket.IO reconnects them transparently with configurable exponential backoff. A raw WebSocket simply drops and your application has to implement all the reconnection, session restoration, and state re-sync logic yourself. For a wellbeing game where someone might be mid-way through sharing something vulnerable, seamless reconnection matters.</p>
+        <p>Second: typed events. Socket.IO's TypeScript generic parameters let you pass your event interface types directly to the server and client constructors, giving you compile-time safety on every <code>emit</code> and <code>on</code> handler without any extra scaffolding.</p>
+        <p>Third: development speed. Rooms, namespaces, and broadcasting patterns are built in. The transport overhead compared to raw WebSocket is negligible and can always be re-evaluated if benchmarks show it matters — but it's not going to matter until we're at a scale where we have much bigger optimisation problems to solve.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the typed protocol contract work between client and server?</summary>
+      <div class="qa-answer">
+        <p>There's a dedicated <code>packages/protocol</code> package in the monorepo that defines two TypeScript interfaces: <code>ClientToServerEvents</code> and <code>ServerToClientEvents</code>. Each interface maps event name strings to their payload function signatures.</p>
+        <p>When you create the Socket.IO server, you pass these as generic type parameters. When you create the client, you pass them in reverse order. Now every <code>socket.emit('player:move', payload)</code> and <code>socket.on('player:moved', handler)</code> is type-checked against those interfaces at compile time.</p>
+        <p>The real value is in the monorepo setup: both the server and client consume the same package. If I add a new field to a payload, or rename an event, the TypeScript compiler immediately shows me every place in both apps that needs to change. There's no "we forgot to update the other side" category of bug.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why PostgreSQL and not MongoDB or a key-value store?</summary>
+      <div class="qa-answer">
+        <p>The data model is inherently relational and benefits from hard constraints. A meteor belongs to exactly one player. A resonance maps one player to one meteor and must be unique per that pair. A star maps to exactly one meteor. These relationships and the rules between them are precisely what relational databases are built for.</p>
+        <p>More concretely: the UNIQUE constraint on <code>(meteor_id, player_id)</code> in the resonances table means duplicate acknowledgments are rejected at the database level, not just in application code. Even if two concurrent requests race past an application-level check, only one will succeed — the other gets a constraint violation. Foreign keys ensure that you can't create a resonance for a meteor that was deleted. These guarantees are free with PostgreSQL and would require careful, error-prone application logic to replicate in a document store.</p>
+        <p>Transactions are also critical: recording a resonance, transitioning the meteor to STAR status, creating the star entity, and issuing a Light transaction all need to happen atomically. Either all of it succeeds or none of it does.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why store Light as transactions instead of a mutable balance column?</summary>
+      <div class="qa-answer">
+        <p>Two reasons: auditability and correctness. A mutable <code>light_balance</code> column can drift if a bug issues credit twice, fails to issue it, or a transaction rolls back midway. You have no history to debug against — you just see a wrong number.</p>
+        <p>A transaction ledger is append-only. Every Light event is recorded with its reason, amount, and a reference ID pointing to what caused it. The current balance is always derivable by summing the ledger. If something looks wrong, you can audit the entire history.</p>
+        <p>More importantly: the client never submits a Light balance. The server only ever <em>inserts</em> Light transactions, and it only does so in response to validated game events. Each transaction's <code>reference_id</code> points to the resonance that earned it, so every credit is traceable to a real event. This makes the whole system much harder to cheat.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do you prevent duplicate acknowledgments?</summary>
+      <div class="qa-answer">
+        <p>Two layers. At the application layer, before inserting a resonance, the server checks whether a resonance already exists for that <code>(meteor_id, player_id)</code> pair. If it does, it returns a structured error with <code>retryable: false</code> to the client.</p>
+        <p>At the database layer, there's a UNIQUE constraint on <code>(meteor_id, player_id)</code> in the resonances table. Even if two requests arrive simultaneously and both pass the application-layer check before either has written — a real race condition under load — only one insert will succeed. The other gets a unique constraint violation that the server handles gracefully and returns as the same structured error.</p>
+        <p>The structured error model follows a consistent shape: <code>{ code, message, retryable }</code>. For idempotency errors like this, <code>retryable</code> is <code>false</code>, so the client knows not to retry.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How would you scale this to 10,000 concurrent users?</summary>
+      <div class="qa-answer">
+        <p>First, measure before optimising — many apparent scale problems turn out to be database query problems or memory leaks, not architecture problems.</p>
+        <p>The MVP runs on a single Node.js process with PostgreSQL, which can comfortably handle thousands of concurrent WebSocket connections. Node's event loop model is well-suited to many simultaneous idle connections.</p>
+        <p>When we actually need to go further, the documented scaling path is: add Redis for pub/sub between multiple game server instances and for shared session/presence state. The architecture already keeps game domain logic separate from Socket.IO transport, so this is a contained change — plug in a Redis pub/sub adapter, and each server instance starts forwarding events to the others.</p>
+        <p>Further out: split the world into spatial zones, route players to the server hosting their zone via a gateway, implement interest management so clients only receive state changes for entities nearby them rather than the entire world. The server-authoritative design doesn't change as we scale — only the infrastructure underneath it does.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why no Redis in MVP?</summary>
+      <div class="qa-answer">
+        <p>It's premature complexity. Redis adds an operational dependency, another failure mode to handle, and a consistency surface area — you now have to think carefully about what's in Redis vs. PostgreSQL and what happens when they disagree. None of that complexity solves a problem we currently have.</p>
+        <p>A single Node.js process with in-memory world state handles the initial player load easily. The decision to add Redis is documented as an ADR so the reasoning is explicit and the path is clear when we get there — but "we might need it eventually" is not a good reason to add it now.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the monorepo structure help with a project like this?</summary>
+      <div class="qa-answer">
+        <p>Three things. First, atomic changes across the boundary. If a Socket.IO event payload changes, I update the interface in <code>packages/protocol</code> and the compiler immediately shows every place in both the web client and game server that needs to change. With separate repos, you'd version the package, publish it, update both consumers — that takes minutes, is easy to forget, and creates a window where the two sides are out of sync.</p>
+        <p>Second, no type duplication. <code>MeteorCategory</code>, <code>ResonanceResponseType</code>, <code>Position</code> — these domain types exist exactly once in <code>packages/shared-types</code>. There's no risk of the client defining <code>'burden' | 'moment'</code> and the server defining <code>'BURDEN' | 'MOMENT'</code> and nobody noticing.</p>
+        <p>Third, unified tooling. One ESLint config, one Prettier config, one test runner invocation. A single <code>npm run test</code> at the repo root runs all workspace tests. A single <code>npm run typecheck</code> catches type errors across all packages at once.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Rendering & Game Engine ──────────────────────────────────────── -->
+  <div class="qa-section">
+    <h2>Rendering &amp; Game Engine (Stage 1)</h2>
+
+    <details>
+      <summary>Why Canvas 2D directly instead of a library like Phaser or PixiJS?</summary>
+      <div class="qa-answer">
+        <p>Three reasons. First, dependency weight. Phaser is around 1 MB minified. For a game whose differentiator is emotional design and realtime social mechanics — not visual effects or physics simulation — that's a lot of download for things we don't use. Canvas 2D is zero bytes because it's a browser API.</p>
+        <p>Second, learning surface. A game framework introduces its own scene graph, asset loader, input system, and lifecycle. Every team member now needs to understand the framework abstractions as well as the game logic. For a Stage 1 single-player world, the Canvas 2D API is sufficient and widely understood.</p>
+        <p>Third, control. The rendering layer is a module I own entirely. If the visual design changes — different aesthetic, different performance budget — I change my code, not a fork of a library. If we later determine that WebGL is needed for visual effects, we can replace just the renderer without touching physics, input, or state management.</p>
+        <p>The rule I follow: add a dependency when it solves a problem that would take significant effort to solve correctly. Canvas 2D gives us everything Stage 1 needs. Phaser would be justified if we needed a tile map loader, sprite animations, or a physics engine — none of which are in the Stage 1 spec.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the game loop work?</summary>
+      <div class="qa-answer">
+        <p>The loop uses <code>requestAnimationFrame</code>. Each frame, it calculates a delta time (elapsed seconds since the last frame), caps it at 50 ms to prevent tunnelling on slow frames, calls <code>tick(state, movement, dt)</code> to produce a new state, computes the camera from the new player position, and passes both to the renderer.</p>
+        <p>The delta time cap matters: if the tab loses focus, the browser stops firing <code>requestAnimationFrame</code>. When the tab regains focus, the first delta could be seconds rather than milliseconds. Without the cap, the player would teleport. With a 50 ms cap, the worst that happens is one slightly stuttery frame.</p>
+        <p>Movement is velocity-based: <code>newX = x + dx × speed × dt</code>. This makes movement frame-rate independent — the player covers the same distance per second whether the game runs at 30 fps or 120 fps. A fixed-step loop would also work, but velocity-based movement with a delta cap is simpler and sufficient for Stage 1.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why separate physics into pure functions? How does that help?</summary>
+      <div class="qa-answer">
+        <p>The movement, collision, camera, and proximity detection logic all live in <code>physics.ts</code> as pure functions: they take state and parameters in, return new state out, and touch no globals, no DOM, and no Canvas APIs.</p>
+        <p>This makes them testable in a Node.js environment with zero setup — no browser, no jsdom, no canvas mock. The 19 physics tests run in 6 ms. If I had mixed the physics into React hooks or Canvas draw calls, testing movement boundary clamping would require mounting a component or mocking <code>requestAnimationFrame</code>.</p>
+        <p>There's also a Stage 2 benefit: when server-authoritative positions arrive over Socket.IO, the game doesn't need a separate "network position" codepath. The server sends a position; we update <code>state.player.x/y</code> directly; the existing renderer and camera code work unchanged. The physics functions can coexist with or be bypassed by server authority without restructuring anything.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is devicePixelRatio and why did you handle it from the start?</summary>
+      <div class="qa-answer">
+        <p><code>window.devicePixelRatio</code> is the ratio of physical screen pixels to CSS pixels. On a Retina MacBook it's 2, meaning one CSS pixel maps to a 2×2 block of physical pixels. If you create a canvas at 800×600 CSS pixels without accounting for DPR, the browser stretches those 800×600 canvas pixels to fill the 1600×1200 physical pixels — the result looks blurry, like a low-resolution image scaled up.</p>
+        <p>The fix: set <code>canvas.width = logicalW × dpr</code> and <code>canvas.height = logicalH × dpr</code>, keep the CSS size at <code>logicalW × logicalH</code> via inline style, then call <code>ctx.setTransform(dpr, 0, 0, dpr, 0, 0)</code> at the start of each frame to scale all draw operations up. The game logic never sees the DPR — it always works in logical pixels.</p>
+        <p>I handled it from the start because retrofitting DPR support later means finding every place that creates canvas coordinates or computes click/touch positions and correcting them. It's a five-line change upfront and a painful refactor later.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the camera system work?</summary>
+      <div class="qa-answer">
+        <p><code>computeCamera</code> is a pure function that takes the player's world position and the viewport dimensions, and returns a camera position — the top-left corner of what the viewport should show.</p>
+        <p>The target is to centre the player: <code>camera.x = player.x - viewportW / 2</code>. But the camera must be clamped so it never shows area outside the world. If the player is near the left edge, <code>camera.x</code> is clamped to 0. If near the right edge, it's clamped to <code>MAP_WIDTH - viewportW</code>. Same on both axes.</p>
+        <p>At render time, the Canvas context is translated by <code>(-camera.x, -camera.y)</code>. All world-space draw calls use world coordinates. The camera transform converts them to screen coordinates automatically. This means the renderer doesn't need to think about the camera at all — it just draws things at their world position, and the context transform handles the rest.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do you generate the star field without storing thousands of positions?</summary>
+      <div class="qa-answer">
+        <p>The renderer uses a deterministic hash function rather than a stored array. For each tile coordinate <code>(tx, ty)</code> visible in the current viewport, it computes a value from <code>Math.sin(tx × 127.1 + ty × 311.7) × 43758.5453</code>, takes the fractional part, and uses that as a pseudo-random number. If that value exceeds 0.91, the tile gets a star. A second hash determines the star's position within the tile, a third its opacity, a fourth its size.</p>
+        <p>The key property: the same tile coordinates always produce the same values. So as the camera moves, stars don't jump or flicker — they're always in the same place. But we never allocate a list of thousands of positions; we just compute on demand for the visible tiles each frame.</p>
+        <p>This pattern is called procedural generation. It trades a tiny amount of CPU per frame for zero memory allocation and zero startup cost. It also means the world can be arbitrarily large — a 10,000 × 10,000 tile world has the same startup time as a 100 × 100 one.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Product & Design ──────────────────────────────────────────────── -->
+  <div class="qa-section">
+    <h2>Product &amp; Emotional Design</h2>
+
+    <details>
+      <summary>What's the core emotional design philosophy?</summary>
+      <div class="qa-answer">
+        <p>The core insight is that vulnerability should not be a popularity contest. Traditional social platforms measure "success" by engagement metrics — likes, follows, comment counts. If you share something and get zero responses, the interface makes that failure visible. If you get a hundred, it signals social worth. This dynamic is particularly harmful when the content being shared is emotionally vulnerable.</p>
+        <p>Afterlight inverts this deliberately. One genuine acknowledgment is <em>defined</em> as enough to transform a meteor into a permanent star. The writer receives "Someone heard you" privately — once, from the first response, regardless of how many follow. The star persists in the world permanently regardless of whether ten more people acknowledge it or none do.</p>
+        <p>Additional resonances are recorded as community context, but they don't change the visual representation of the original star or the writer's "worth". The game should never make a player feel that their contribution was more or less meaningful based on how many people noticed it.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why only predefined responses? Why not let players write their own?</summary>
+      <div class="qa-answer">
+        <p>Safety and scope. If players can send arbitrary text messages to each other, you need a full moderation system: automated content classification, human review queues, appeal processes, harassment handling, and potential legal liability for user-generated direct messages. You also create vectors for manipulation, unsolicited clinical advice, and unwanted contact.</p>
+        <p>Predefined responses allow meaningful acknowledgment without any of that risk surface. The five responses were chosen carefully: they validate without directing, acknowledge without advising. "I feel this too" is non-directive solidarity. "You're not alone" offers connection. None of them tell the writer how to feel or what to do — which is precisely the kind of unsolicited advice that can be harmful when someone is sharing something difficult.</p>
+        <p>The constraint also simplifies the interaction model. A player approaching a meteor has five clear choices. There's no decision paralysis and no pressure to say the "right" thing — which matters when the moment might be emotionally significant.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the game avoid making players feel responsible for others' wellbeing?</summary>
+      <div class="qa-answer">
+        <p>Several design decisions work together on this. No player ever receives a notification that someone is waiting for their response — meteors appear in the world because you walked near them, not because you were assigned to help. There's no "unacknowledged meteor count" screen, no inbox of outstanding requests.</p>
+        <p>The predefined responses don't allow clinical advice, reassurance promises, or directives. You can't tell someone "it will get better" or "you should talk to someone" — both of which can create pressure on the person receiving them.</p>
+        <p>There's also no punishment for inactivity. No "you have unread meteors" notifications, no streak mechanics, no "people are waiting for you" guilt prompts. The game should feel welcoming whether you haven't played in months or you played yesterday.</p>
+        <p>And critically, the help text and crisis flow make explicit that Afterlight cannot provide emergency support — so no player develops an expectation that the game will keep them safe.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does the safety pipeline work?</summary>
+      <div class="qa-answer">
+        <p>Content submitted as a meteor goes through three stages. First, length and format validation — cheap checks that catch obviously invalid input before spending classification resources. Second, safety classification, which produces one of three outcomes: SAFE, SENSITIVE, or HIGH_RISK.</p>
+        <p>SAFE content is published to the shared world. SENSITIVE content is held for human review before it becomes public. HIGH_RISK content is never published — instead, the writer sees a calm, supportive message and verified crisis resources appropriate to their region.</p>
+        <p>The important engineering point is that a keyword blacklist alone is not sufficient. It has unacceptable false positive rates — "I could die laughing" should not trigger a crisis flow. It also has false negative rates — indirect expressions of distress that don't use any flagged words. Context-aware classification, whether a trained ML classifier or an LLM-based approach, is required before public launch.</p>
+        <p>The crisis flow itself is designed carefully: it doesn't gamify the experience, it's explicit that the game can't provide emergency support, and we use verified resources rather than generic disclaimers.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why is player identity anonymous? What does "anonymous" actually mean here?</summary>
+      <div class="qa-answer">
+        <p>Anonymous to other players — not to the system. The server maintains internal user IDs and session tokens for persistence, rate limiting, and abuse prevention. What it doesn't expose is anything that would let one player identify or contact another.</p>
+        <p>There's no public profile, no username displayed next to a meteor, no "this meteor was shared by someone near you". When a meteor transforms into a star, the writer's identity is not attached to the star.</p>
+        <p>Why: real names and profiles create social pressure. People self-censor when their identity is attached to what they share — they worry about judgment, about their professional connections seeing it, about it being quoted back to them. Anonymity removes that pressure and lets people share honestly. The game's emotional promise only works if people feel safe sharing.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What's the difference between Light and a mental-health score?</summary>
+      <div class="qa-answer">
+        <p>Light is a cosmetic game resource. You earn it by acknowledging a meteor. You spend it on visual items for your personal garden — star trail effects, decorative objects. It has no gameplay power and no public display.</p>
+        <p>A mental-health score would be something like a public "empathy rating", a leaderboard of who helped the most, or a profile badge showing how many meteors you've acknowledged. That design would create competition over empathy — players optimising for the score rather than for genuine acknowledgment — and it would make the act of helping feel transactional.</p>
+        <p>The explicit design rule: Light must never be shown as a ranking or a public comparison. It grows your own space. It doesn't tell anyone else how "good" a community member you are.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Testing & Engineering Process ────────────────────────────────── -->
+  <div class="qa-section">
+    <h2>Testing &amp; Engineering Process</h2>
+
+    <details>
+      <summary>How do you test realtime Socket.IO behavior without mocking the transport?</summary>
+      <div class="qa-answer">
+        <p>The key design decision is that <code>createApp()</code> creates the Express app, HTTP server, and Socket.IO instance without binding to a port — it returns them as plain objects. Tests call <code>httpServer.listen(0)</code> to bind to a random available OS port. This avoids port conflicts when tests run in parallel.</p>
+        <p>Then I use <code>socket.io-client</code> — the same library the web app uses — to create real Socket.IO clients that connect to <code>localhost:{random-port}</code>. No mocking of the transport layer. A test that connects a client, emits an event, and checks the server's response is exercising exactly the same code path that production does.</p>
+        <p>Each test creates its own server on its own port, and <code>afterAll</code> closes it cleanly. This means tests are fully isolated and don't interfere with each other.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why build in stages instead of the full game at once?</summary>
+      <div class="qa-answer">
+        <p>Each stage has a concrete success criterion that proves a specific assumption. Stage 0 proves the foundation is clean and the toolchain works. Stage 1 proves a player can move in the world. Stage 2 proves multiple clients share state correctly. Stage 3 proves the core emotional mechanic works end to end.</p>
+        <p>If I built all of this at once and then discovered a bug in Stage 3, that bug could be architectural — a consequence of a decision made in Stage 0 — and I'd have three additional stages sitting on top of it that all need to change. Finding an architectural issue in Stage 1 with nothing built on top of it is a much cheaper fix.</p>
+        <p>There's also a product validation angle: Stage 3 is the minimal playable slice that proves whether the emotional mechanic actually works. If the core loop doesn't feel right with two test clients, there's no point building a personal garden or world simulation on top of it.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What does the test suite cover in Stage 0?</summary>
+      <div class="qa-answer">
+        <p>Eight tests across two files. The health check tests verify that <code>GET /health</code> returns 200, that the response body has <code>status: 'ok'</code>, that uptime is a non-negative number, and that the timestamp is a valid ISO string.</p>
+        <p>The socket tests verify that a client can connect and get a socket ID, that it can disconnect cleanly, and that two clients can connect simultaneously and receive different socket IDs. These are the minimal correctness guarantees for the connection lifecycle — the foundation that all future socket event tests will build on.</p>
+        <p>The tests run with vitest, which has TypeScript support built in and no configuration friction. Test files import <code>createApp()</code> directly, so there's no test-specific entry point to maintain.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What was your approach to TypeScript strictness?</summary>
+      <div class="qa-answer">
+        <p>Strict mode is on everywhere — <code>"strict": true</code> in the base tsconfig, which enables all the strict checks: no implicit any, strict null checks, strict function types, etc. No <code>@ts-ignore</code>, no <code>any</code> casts.</p>
+        <p>The practical effect: the protocol types enforce at compile time that every socket event handler receives the correct payload shape. If I add a field to <code>MeteorCreatePayload</code> and forget to update a handler on the server, the build fails before I even run tests.</p>
+        <p>For the test files, there's a separate <code>tsconfig.test.json</code> that extends the main one but includes the <code>tests/</code> directory and sets <code>noEmit: true</code>. This means the main build only compiles <code>src/</code>, but <code>npm run typecheck</code> checks everything including tests.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Behavioural / Story ────────────────────────────────────────────── -->
+  <div class="qa-section">
+    <h2>Behavioural &amp; Story Questions</h2>
+
+    <details>
+      <summary>Tell me about a specific architectural decision you made and why.</summary>
+      <div class="qa-answer">
+        <p>One that I'm particularly glad I made early: storing Light as transactions rather than a mutable balance column. The tempting first implementation is a <code>light_balance INTEGER</code> column on the players table — you increment it when someone earns Light. Simple, fast to read.</p>
+        <p>But I recognised that this creates a class of bugs that are hard to detect and hard to recover from. If a transaction rolls back midway through the acknowledge → star → Light sequence, you don't know whether the Light was issued or not. If you have a bug that double-issues credits, you see a wrong balance but no history to audit against. And critically, a mutable balance is a target for client-side manipulation — if the client ever submits a balance, a bad actor submits a large number.</p>
+        <p>The ledger model solves all three: it's append-only so nothing gets lost, every entry is traceable to a real event, and the client never submits a balance. The only cost is that reading the current balance requires a SUM query rather than a column read — which is trivial to cache if it ever matters.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What's the hardest part of building this kind of game technically?</summary>
+      <div class="qa-answer">
+        <p>The hardest part is maintaining consistency across distributed state under concurrent access. You have an in-memory world state on the server for real-time responsiveness, and a PostgreSQL database for durability. These two representations can diverge.</p>
+        <p>For example: Player A and Player B both approach the same meteor at the same time and both try to acknowledge it. The in-memory world sees them both attempting it. The database's UNIQUE constraint on <code>(meteor_id, player_id)</code> means only one can succeed, but both players have already been told "you're acknowledging this" at the socket level. Reconciling that gracefully — rolling back the failed party, sending them a clean error, not leaving the UI in a weird state — requires careful ordering of operations and clear error propagation.</p>
+        <p>The rule I follow: write to the database first, then update in-memory state, then broadcast to clients. Never broadcast a state change that hasn't been committed to the database. This ensures the database is always the source of truth and in-memory state is always derivable from it.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How would you explain this project to a non-technical interviewer?</summary>
+      <div class="qa-answer">
+        <p>Afterlight is a multiplayer game that lives in a browser. The world looks like a night sky. Players can anonymously share a small piece of what they're carrying — a worry, a hope, a moment — and it appears in the shared sky as a glowing meteor.</p>
+        <p>Other players walking through the world can encounter that meteor, read it, and choose one of five simple responses — things like "I feel this too" or "You're not alone." When someone does that, the meteor transforms into a permanent star. The person who shared it gets a private notification: "Someone heard you."</p>
+        <p>What makes this different from social media is that the design deliberately avoids popularity mechanics. One response is defined as enough — the transformation happens regardless of whether one person acknowledges it or a hundred. There are no like counts, no follower numbers, no leaderboards. The game's goal is simply that something you carried alone can become something that was heard.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What would you do differently if you were starting over?</summary>
+      <div class="qa-answer">
+        <p>I'd specify the safety classification provider earlier. The architecture correctly leaves it as an abstraction, but the actual implementation choice — LLM-based classifier, fine-tuned model, third-party API — has real latency and cost implications for the meteor creation loop. That decision currently lives as "to be decided before Stage 3", but it should probably be prototyped alongside Stage 1 so we know what constraints we're designing around.</p>
+        <p>I'd also write more explicit documentation about what "anonymous" means at the implementation level — which fields exist, which are internal-only, what the minimum data retention actually is. The architecture documents it at a product level but a new engineer joining the project shouldn't have to reconstruct the privacy model from the database schema.</p>
+      </div>
+    </details>
+  </div>
+
+</div>
+</div>
+
+<footer>Afterlight &mdash; Interview preparation Q&amp;A</footer>
+</body>
+</html>

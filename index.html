@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — Project Overview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html" class="active">Overview</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="stages.html">Stages</a>
+  <a href="interview.html">Interview Q&amp;A</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-tag">Multiplayer Wellbeing Game</div>
+    <h1>Afterlight</h1>
+    <p class="subtitle">You are not the only one under this sky.</p>
+    <div class="loop-row">
+      <span class="loop-step">Share</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Discover</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Acknowledge</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Transform</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Build</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Explore</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>What is Afterlight?</h2>
+    <p>
+      Afterlight is a persistent browser-based multiplayer game where players anonymously share small pieces of what they are carrying — a worry, a hope, a moment, a gratitude — as a <em>meteor</em> in a shared night sky. When another real player encounters that meteor and acknowledges it, it transforms permanently into a <em>star</em>.
+    </p>
+    <p>
+      The emotional promise is simple: <strong>something you carried alone can become something that was heard.</strong>
+    </p>
+    <p>
+      Afterlight is <strong>not</strong> therapy, diagnosis, crisis counseling, or a replacement for professional care. It is a social game centered on expression, recognition, and gentle connection.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>The Mechanic in One Sequence</h2>
+    <div class="card">
+      <ol>
+        <li>A player opens the release interface, selects a category (<em>burden</em>, <em>moment</em>, <em>hope</em>, or <em>gratitude</em>), and writes a short anonymous message.</li>
+        <li>The server runs safety checks. Approved messages enter the shared world as a glowing <em>meteor</em>.</li>
+        <li>Another player walking through the world encounters the meteor. They read it. They choose one of five predefined responses: <em>"I feel this too."</em>, <em>"You're not alone."</em>, etc.</li>
+        <li>The server records the resonance. The meteor transforms into a permanent <em>star</em> in real time — both clients see this simultaneously.</li>
+        <li>The original writer receives a private notification: <strong>Someone heard you.</strong></li>
+        <li>The acknowledging player earns <em>Light</em> — a cosmetic resource used to grow a personal garden space.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Design Principles</h2>
+    <div class="two-col">
+      <div class="principle">
+        <strong>One acknowledgment is enough</strong>
+        The first genuine response transforms a meteor into a star. Additional responses are recorded as community resonance but do not change the writer's "worth."
+      </div>
+      <div class="principle">
+        <strong>No popularity metrics</strong>
+        No public like counts, no follower scores, no leaderboards. The game should never make vulnerability feel like a competition.
+      </div>
+      <div class="principle">
+        <strong>Anonymous by default</strong>
+        Players are anonymous to one another. The system maintains internal IDs for persistence and abuse prevention, but no public profile is required or displayed.
+      </div>
+      <div class="principle">
+        <strong>Structured interaction only</strong>
+        Only predefined responses are available. No free-form player-to-player chat. This prevents harassment, manipulation, and unwanted contact while keeping the acknowledgment mechanic intact.
+      </div>
+      <div class="principle">
+        <strong>Safety is a product requirement</strong>
+        Content safety, crisis flow, and moderation are first-class requirements built into the architecture from Stage 0 — not features added before launch.
+      </div>
+      <div class="principle">
+        <strong>Light is not a wellbeing score</strong>
+        Light is a cosmetic game resource that unlocks garden items. It is not a public mental-health metric or a ranking of empathy.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Current Progress</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Goal</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Stage 0</strong> — Foundation</td>
+            <td>Monorepo, TypeScript, Socket.IO, PostgreSQL, tests, CI-ready scripts</td>
+            <td><span class="badge badge-complete">✓ Complete</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stage 1</strong> — Single-player world</td>
+            <td>2D map, player avatar, keyboard movement, camera, collision</td>
+            <td><span class="badge badge-complete">✓ Complete</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stage 2</strong> — Realtime multiplayer</td>
+            <td>Multiple clients in the same world, server-authoritative movement</td>
+            <td><span class="badge badge-complete">✓ Complete</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stage 3</strong> — Meteor vertical slice</td>
+            <td>Full core loop: create meteor → acknowledge → star → Light → notification</td>
+            <td><span class="badge badge-next">→ Next</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stage 4</strong> — Personal space</td>
+            <td>Light inventory, cosmetics, personal garden, placement</td>
+            <td><span class="badge badge-planned">Planned</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stage 5</strong> — Safety hardening</td>
+            <td>Report flow, moderation states, rate limits, crisis flow, privacy</td>
+            <td><span class="badge badge-safety">Required before public beta</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stages 6–10</strong></td>
+            <td>Afterlights, Living Library, world simulation, scaling, public beta</td>
+            <td><span class="badge badge-planned">Future</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Technology Stack</h2>
+    <div class="three-col">
+      <div class="card">
+        <h3>Web Client</h3>
+        <ul>
+          <li>Next.js 14 (App Router)</li>
+          <li>React 18</li>
+          <li>TypeScript strict</li>
+          <li>Socket.IO client</li>
+          <li>Canvas (Stage 1+)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Game Server</h3>
+        <ul>
+          <li>Node.js 22</li>
+          <li>TypeScript strict</li>
+          <li>Express (HTTP)</li>
+          <li>Socket.IO (realtime)</li>
+          <li>tsx (dev runner)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Infrastructure</h3>
+        <ul>
+          <li>PostgreSQL 16</li>
+          <li>Docker Compose</li>
+          <li>npm workspaces</li>
+          <li>vitest</li>
+          <li>ESLint + Prettier</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer>
+  Afterlight &mdash; Project documentation &mdash; Stage 2 complete
+</footer>
+</body>
+</html>

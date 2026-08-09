@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — Architecture</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html">Overview</a>
+  <a href="architecture.html" class="active">Architecture</a>
+  <a href="stages.html">Stages</a>
+  <a href="interview.html">Interview Q&amp;A</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <h1>Architecture</h1>
+
+  <div class="section">
+    <h2>System Overview</h2>
+    <div class="arch-diagram">
+<span class="hl">Browser (Next.js)</span>
+      │
+      │  <span class="acc">Socket.IO WebSocket</span>
+      │  typed protocol events
+      │
+      ▼
+<span class="hl">Node.js Game Server</span>
+      │
+      ├── <span class="grn">Express HTTP</span>        GET /health
+      │
+      ├── <span class="acc">Socket.IO Gateway</span>   player:join / player:move / meteor:*
+      │
+      └── <span class="gld">World Domain</span>        in-memory authoritative state
+                │
+                └── <span class="pur">PostgreSQL</span>          durable persistence
+    </div>
+    <p style="color:var(--text-muted);font-size:.88rem;margin-top:.75rem;">
+      The browser is a presentation and input client only. It sends <em>intents</em>. The server validates, updates state, and broadcasts results.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Monorepo Structure</h2>
+    <pre><code>afterlight/
+├── apps/
+│   ├── <span class="nb">web/</span>               Next.js web client           :3000
+│   └── <span class="nb">game-server/</span>       Node.js + Socket.IO server   :3001
+│
+├── packages/
+│   ├── <span class="nb">shared-types/</span>      Domain types (MeteorCategory, Position …)
+│   └── <span class="nb">protocol/</span>          Typed Socket.IO event contracts
+│
+├── database/
+│   ├── migrations/        SQL run by Docker Compose on first start
+│   └── seeds/             Development seed data
+│
+├── docker-compose.yml     PostgreSQL 16 on host port 5433
+└── package.json           npm workspaces root</code></pre>
+  </div>
+
+  <div class="section">
+    <h2>Stage 1 — Game Engine (Client-side)</h2>
+    <p>The browser game engine is a pure TypeScript module with no external game library. Each layer has a single responsibility.</p>
+    <div class="arch-diagram">
+<span class="hl">GameEngine</span>               owns loop, state, input, renderer
+     │
+     ├── <span class="acc">InputHandler</span>          keyboard keys → MovementVector
+     │
+     ├── <span class="grn">tick()</span>                pure fn: movePlayer + detectNearbyZone
+     │     │
+     │     ├── <span class="nb">movePlayer()</span>       apply velocity, clamp to world bounds
+     │     └── <span class="nb">detectNearbyZone()</span> proximity check vs interaction zones
+     │
+     ├── <span class="gld">computeCamera()</span>        pure fn: centre viewport, clamp to world
+     │
+     └── <span class="pur">Renderer</span>              Canvas 2D: background, stars, zones, player, HUD
+    </div>
+    <div class="two-col" style="margin-top:1.5rem">
+      <div class="card">
+        <h3>Why pure functions for physics?</h3>
+        <p style="font-size:.9rem;color:var(--text-muted)">
+          <code>movePlayer</code>, <code>computeCamera</code>, and <code>detectNearbyZone</code> take state in and return new state out — no DOM, no Canvas, no React. This means they run in a Node.js test environment with zero setup. In Stage 2, the same functions will accept server-authoritative positions instead of locally computed ones, without any change to the renderer.
+        </p>
+      </div>
+      <div class="card">
+        <h3>DPR-aware canvas sizing</h3>
+        <p style="font-size:.9rem;color:var(--text-muted)">
+          On Retina displays <code>devicePixelRatio</code> is 2 or 3 — a canvas at 1:1 looks blurry. The renderer sets <code>canvas.width = logicalW × dpr</code> and calls <code>ctx.setTransform(dpr, 0, 0, dpr, 0, 0)</code> at the start of each frame. Game logic always works in logical pixels; the DPR scaling is invisible to physics and camera code.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Procedural star field</h3>
+        <p style="font-size:.9rem;color:var(--text-muted)">
+          Stars are not stored in memory. The renderer uses a deterministic hash <code>sin(tx·127 + ty·311 + offset·74) × 43758</code> per tile coordinate to decide whether a tile contains a star and where. The same tile always produces the same star, so the field is visually consistent as the camera moves — but there is no array to allocate or serialise.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Diagonal movement normalisation</h3>
+        <p style="font-size:.9rem;color:var(--text-muted)">
+          Without normalisation, holding W+D moves at speed × √2 ≈ 1.41×, which feels wrong. The input handler sums the direction vectors from all held keys, then divides by the magnitude when both axes are non-zero. Result: every direction moves at the same speed.
+        </p>
+      </div>
+    </div>
+    <h3 style="margin-top:1.5rem">Test coverage added in Stage 1</h3>
+    <table>
+      <thead><tr><th>Test group</th><th>Cases</th><th>What it verifies</th></tr></thead>
+      <tbody>
+        <tr><td><code>movePlayer</code></td><td>7</td><td>movement, boundary clamping on all 4 edges, diagonal distance</td></tr>
+        <tr><td><code>computeCamera</code></td><td>5</td><td>centring, clamping to all 4 edges</td></tr>
+        <tr><td><code>detectNearbyZone</code></td><td>4</td><td>detection, non-detection, nearest-wins, reference stability</td></tr>
+        <tr><td><code>tick</code></td><td>2</td><td>counter increment, immutability of original state</td></tr>
+        <tr><td colspan="2"><strong>Total web tests</strong></td><td><strong>19 passing</strong> (27 total across all packages)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Key Architectural Principle: Server Authority</h2>
+    <div class="two-col">
+      <div class="card">
+        <h3 style="color:var(--red)">Client never sends</h3>
+        <ul>
+          <li>Final player position</li>
+          <li>Light balance</li>
+          <li>Meteor ownership claims</li>
+          <li>Reward values</li>
+          <li>Star creation</li>
+          <li>Moderation decisions</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--green)">Client only sends intents</h3>
+        <pre style="margin:0"><code><span class="cm">// direction only — not coordinates</span>
+{ direction: <span class="st">"right"</span>, sequence: <span class="nu">42</span> }
+
+<span class="cm">// content only — not status</span>
+{ category: <span class="st">"hope"</span>, content: <span class="st">"…"</span> }
+
+<span class="cm">// choice only — not outcome</span>
+{ meteorId: <span class="st">"…"</span>, responseType: <span class="st">"…"</span> }</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Typed Protocol Contract</h2>
+    <p>The <code>@afterlight/protocol</code> package defines the complete Socket.IO event interface. Both the server and client are parameterised with the same types, giving compile-time safety on every event.</p>
+    <pre><code><span class="cm">// packages/protocol/src/index.ts</span>
+
+<span class="kw">export interface</span> <span class="nb">ClientToServerEvents</span> {
+  <span class="st">'player:join'</span>:        (payload: <span class="nb">PlayerJoinPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'player:move'</span>:        (payload: <span class="nb">PlayerMovePayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'meteor:create'</span>:      (payload: <span class="nb">MeteorCreatePayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'meteor:acknowledge'</span>: (payload: <span class="nb">MeteorAcknowledgePayload</span>) =&gt; <span class="kw">void</span>;
+}
+
+<span class="kw">export interface</span> <span class="nb">ServerToClientEvents</span> {
+  <span class="st">'world:snapshot'</span>:       (payload: <span class="nb">WorldSnapshotPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'player:moved'</span>:         (payload: <span class="nb">PlayerMovedPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'meteor:created'</span>:       (payload: <span class="nb">MeteorCreatedPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'star:created'</span>:         (payload: <span class="nb">StarCreatedPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'light:earned'</span>:         (payload: <span class="nb">LightEarnedPayload</span>) =&gt; <span class="kw">void</span>;
+  <span class="st">'notification:heard'</span>:   (payload: <span class="nb">NotificationHeardPayload</span>) =&gt; <span class="kw">void</span>;
+}</code></pre>
+    <p style="font-size:.88rem;color:var(--text-muted)">
+      Adding a new event without updating both interfaces causes a TypeScript compile error before it reaches runtime.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Meteor Lifecycle</h2>
+    <div class="arch-diagram">
+<span class="nb">DRAFT</span>
+  ↓  player submits content
+<span class="nb">SAFETY_CHECK</span>
+  ↓  passes classification
+<span class="grn">PUBLISHED</span>       ← enters the shared world, visible to all players
+  ↓  player approaches
+<span class="grn">ENCOUNTERED</span>
+  ↓  player selects a response
+<span class="gld">ACKNOWLEDGED</span>    ← writer receives private "Someone heard you"
+  ↓  simultaneously
+<span class="gld">STAR</span>            ← permanent entry in the sky; helper receives +1 Light
+
+<span class="acc">SENSITIVE</span>       ← held for human review (never public until cleared)
+<span class="pur">HIGH_RISK</span>       ← never published; crisis support flow shown to writer
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Database Schema</h2>
+    <pre><code><span class="kw">users</span>             id, created_at, last_seen_at, status
+<span class="kw">players</span>           id, user_id, zone_id, position_x, position_y
+<span class="kw">meteors</span>           id, player_id, category, content, status, safety_status, position
+<span class="kw">resonances</span>        id, meteor_id, player_id, response_type
+                  <span class="cm">-- UNIQUE(meteor_id, player_id) prevents duplicate acks</span>
+<span class="kw">stars</span>             id, meteor_id, position_x, position_y
+<span class="kw">light_transactions</span> id, player_id, amount, reason, reference_id
+                  <span class="cm">-- append-only ledger; balance = SUM(amount)</span>
+<span class="kw">items</span>             id, item_type, name, metadata
+<span class="kw">player_items</span>      id, player_id, item_id, quantity</code></pre>
+    <p style="font-size:.88rem;color:var(--text-muted)">
+      Light is stored as transactions (not a mutable balance column) for auditability and correctness. You can always recalculate a player's balance from the ledger.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Safety Pipeline</h2>
+    <div class="arch-diagram">
+User content
+    ↓
+<span class="nb">Length / format validation</span>    ← cheap; catches obvious bad input
+    ↓
+<span class="nb">Safety classification</span>         ← context-aware; NOT just keyword matching
+    ↓
+┌────────────────┬─────────────────┬──────────────────────┐
+│ <span class="grn">SAFE</span>           │ <span class="acc">SENSITIVE</span>       │ <span class="pur">HIGH_RISK</span>            │
+│                │                 │                      │
+│ Publish to     │ Hold for human  │ Do not publish.      │
+│ shared world   │ review          │ Show calm support    │
+│                │                 │ resources.           │
+└────────────────┴─────────────────┴──────────────────────┘
+    </div>
+    <p style="font-size:.88rem;color:var(--text-muted);margin-top:.75rem;">
+      A keyword blacklist alone is <strong>not sufficient</strong>. "I could die laughing" should not trigger a crisis flow. Indirect hopelessness that uses no flagged words should. Context-aware classification is required before public launch.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Scaling Path</h2>
+    <div class="arch-diagram">
+<span class="cm">MVP (Stage 0–3)</span>
+Browser → <span class="hl">Game Server</span> → <span class="pur">PostgreSQL</span>
+
+<span class="cm">Stage 9+: when profiling demands it</span>
+Browser → <span class="nb">Gateway</span> → <span class="hl">World Server(s)</span>
+                           │
+                      <span class="acc">Redis pub/sub</span>     ← session presence, cross-server events
+                           │
+                      <span class="pur">PostgreSQL</span>        ← durable state unchanged
+    </div>
+    <p style="font-size:.88rem;color:var(--text-muted);margin-top:.75rem;">
+      Redis is not in MVP. A single Node.js process handles thousands of concurrent WebSocket connections. Add Redis when <em>measured</em> requirements justify it, not before.
+    </p>
+  </div>
+
+  <hr>
+
+  <h2>Architecture Decisions (ADRs)</h2>
+  <div class="adr-list">
+
+    <div class="adr-card">
+      <h3><span>ADR-001</span> Separate web client and game server</h3>
+      <p><strong>Decision:</strong> Next.js for the web app; a separate Node.js process for the game server.</p>
+      <p><strong>Why:</strong> Different performance characteristics, lifecycle, and scaling concerns. The game simulation can't share GC settings or deployment topology with an SSR web app.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-002</span> Server-authoritative world state</h3>
+      <p><strong>Decision:</strong> The server owns all gameplay state. Clients send intents; the server validates and broadcasts results.</p>
+      <p><strong>Why:</strong> Prevents cheating, ensures consistency across all clients, maintains the integrity of emotional interactions (a faked acknowledgment would corrupt the "Someone heard you" moment).</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-003</span> Socket.IO for realtime transport</h3>
+      <p><strong>Decision:</strong> Socket.IO over raw WebSocket for MVP.</p>
+      <p><strong>Why:</strong> Built-in reconnection (critical for a wellbeing game where sessions are emotionally significant), typed event patterns, rooms/namespaces, fast development. Raw WebSocket re-evaluable if benchmarks show overhead.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-004</span> PostgreSQL for durable state</h3>
+      <p><strong>Decision:</strong> PostgreSQL with relational constraints and transactions.</p>
+      <p><strong>Why:</strong> The data model is inherently relational. UNIQUE constraints enforce one-resonance-per-player at the database level. Transactions make the acknowledge → star → Light sequence atomic.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-005</span> No Redis in MVP</h3>
+      <p><strong>Decision:</strong> Defer Redis until profiling shows the need.</p>
+      <p><strong>Why:</strong> Premature complexity. A single Node.js server handles the initial world. Redis adds a failure point, operational cost, and consistency surface area without solving a current problem.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-006</span> 2D before 3D</h3>
+      <p><strong>Decision:</strong> 2D Canvas rendering for MVP.</p>
+      <p><strong>Why:</strong> The differentiator is the social and realtime mechanic, not visual fidelity. 3D asset production would consume development time without validating the core idea.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-007</span> No free-form player chat</h3>
+      <p><strong>Decision:</strong> Predefined responses only — no arbitrary text between players.</p>
+      <p><strong>Why:</strong> Eliminates the moderation surface for harassment, manipulation, grooming, and misinformation while keeping the acknowledgment mechanic fully intact.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-008</span> One acknowledgment transforms a meteor</h3>
+      <p><strong>Decision:</strong> The first valid acknowledgment transforms the meteor to a star.</p>
+      <p><strong>Why:</strong> Avoids popularity-based emotional valuation. Additional resonances are recorded but don't change the writer's star or their "Someone heard you" moment.</p>
+    </div>
+
+    <div class="adr-card">
+      <h3><span>ADR-009</span> Light is cosmetic-only</h3>
+      <p><strong>Decision:</strong> Light unlocks garden cosmetics only — not gameplay power or public status.</p>
+      <p><strong>Why:</strong> The game should not quantify mental health or create competition over empathy. A visible "empathy score" would corrupt the social dynamic the game is trying to create.</p>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<footer>
+  Afterlight &mdash; Architecture documentation
+</footer>
+</body>
+</html>
