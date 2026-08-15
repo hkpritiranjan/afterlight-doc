@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — UI Design Plan</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Page-local additions ────────────────────────────────────────────── */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .swatch {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .swatch-chip { height: 52px; width: 100%; }
+    .swatch-info { padding: 8px 10px 10px; background: var(--bg-surface); }
+    .swatch-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .swatch-hex  { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+    }
+    @media (max-width: 860px) {
+      .phase-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .phase-grid { grid-template-columns: 1fr; }
+    }
+    .phase-card {
+      padding: 18px 16px 20px;
+      border: 1px solid var(--border);
+      border-right: none;
+      background: var(--bg-surface);
+    }
+    .phase-card:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    .phase-card:last-child  { border-radius: 0 var(--radius) var(--radius) 0; border-right: 1px solid var(--border); }
+    @media (max-width: 860px) {
+      .phase-card { border-right: 1px solid var(--border); border-radius: 0; }
+      .phase-card:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+      .phase-card:last-child  { border-radius: 0 0 var(--radius) var(--radius); }
+    }
+    .phase-num  { font-size: 32px; font-weight: 700; color: var(--border); line-height: 1; margin-bottom: 10px; }
+    .phase-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; }
+    .phase-items { list-style: none; margin: 0; }
+    .phase-items li { font-size: 11px; color: var(--text-muted); padding: 3px 0; border-bottom: 1px solid var(--border-soft); line-height: 1.4; }
+    .phase-items li:last-child { border-bottom: none; }
+    .phase-days { margin-top: 10px; font-size: 10px; font-weight: 700; color: var(--blue); letter-spacing: .07em; text-transform: uppercase; }
+
+    .comp-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 760px) {
+      .comp-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .comp-grid { grid-template-columns: 1fr; }
+    }
+    .comp-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .comp-pos   { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--purple); margin-bottom: 4px; }
+    .comp-name  { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .comp-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+
+    .anim-table { width: 100%; border-collapse: collapse; }
+    .anim-table th {
+      font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text-muted); border-bottom: 1px solid var(--border); padding: 8px 12px;
+      text-align: left;
+    }
+    .anim-table td {
+      font-size: 12px; color: var(--text-muted); padding: 10px 12px;
+      border-bottom: 1px solid var(--border-soft); vertical-align: top; line-height: 1.55;
+    }
+    .anim-table td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+    .anim-table td:last-child  { white-space: nowrap; color: var(--text-faint); font-size: 11px; }
+    .anim-table tr:last-child td { border-bottom: none; }
+
+    .asset-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .asset-row:last-child { border-bottom: none; }
+    .asset-text  { font-size: 13px; color: var(--text); }
+    .asset-sub   { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+
+    .layer-diagram {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .layer-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      align-items: stretch;
+      border-bottom: 1px solid var(--border);
+    }
+    .layer-row:last-child { border-bottom: none; }
+    .layer-label {
+      padding: 16px 14px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+    }
+    .layer-n    { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .layer-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .layer-body { padding: 14px 16px; }
+    .layer-main { font-size: 13px; color: var(--text); font-weight: 500; margin-bottom: 4px; }
+    .layer-sub  { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .recipe-block {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      overflow-x: auto;
+    }
+    .recipe-block pre { margin: 0; font-size: .8rem; }
+
+    .option-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 640px) {
+      .option-compare { grid-template-columns: 1fr; }
+    }
+
+    .tag-new      { background: rgba(167,139,250,.12); color: var(--purple); border: 1px solid rgba(167,139,250,.25); }
+    .tag-redesign { background: rgba(245,197,66,.10);  color: var(--gold);   border: 1px solid rgba(245,197,66,.2); }
+    .tag-keep     { background: rgba(62,207,142,.10);  color: var(--green);  border: 1px solid rgba(62,207,142,.2); }
+    .tag-code     { background: rgba(91,156,246,.10);  color: var(--blue);   border: 1px solid rgba(91,156,246,.2); }
+    .tag-gen      { background: rgba(245,158,11,.10);  color: var(--orange); border: 1px solid rgba(245,158,11,.2); }
+    .tag-art      { background: rgba(248,113,113,.10); color: var(--red);    border: 1px solid rgba(248,113,113,.2); }
+
+    .comp-tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: 2px 8px;
+      border-radius: 20px; margin-top: 10px;
+    }
+
+    .midjourney-prompt {
+      background: rgba(245,158,11,.06);
+      border: 1px solid rgba(245,158,11,.2);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .midjourney-prompt strong { color: var(--orange); font-family: inherit; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html">Overview</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="stages.html">Stages</a>
+  <a href="interview.html">Interview Q&amp;A</a>
+  <a href="guide.html">Player Guide</a>
+  <a href="ui-design.html" class="active">UI Design</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-tag">Design Direction — Stage 5</div>
+    <h1>UI &amp; UX Plan</h1>
+    <p class="subtitle">A world you stand inside, not an interface you operate.</p>
+  </div>
+
+  <div class="section">
+    <p>
+      The goal: a painted atmospheric night scene fills the entire screen. The player exists inside it.
+      Every UI element floats as frosted glass at the screen edges — never covering the world unless called.
+      This document is the complete implementation plan: layer architecture, color system, component inventory,
+      animation catalog, and a 5-phase delivery roadmap.
+    </p>
+  </div>
+
+  <!-- ── 1. Layer Architecture ───────────────────────────────────────────── -->
+  <div class="section">
+    <h2>1. Layer Architecture</h2>
+    <p>Three stacked layers cover the full viewport. Their separation is the key structural decision — it keeps the painted scene unblemished while interactive and UI elements float above it.</p>
+
+    <div class="layer-diagram" style="margin-top:1.5rem;">
+      <div class="layer-row">
+        <div class="layer-label">
+          <div class="layer-n" style="color:var(--purple);">Layer 3</div>
+          <div class="layer-name">Glass UI</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-main">React components — fixed-position edge anchors, backdrop-filter blur</div>
+          <div class="layer-sub">position: fixed · z-index: 10–50 · pointer-events: auto · never center of screen</div>
+        </div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label">
+          <div class="layer-n" style="color:var(--blue);">Layer 2</div>
+          <div class="layer-name">Canvas</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-main">Transparent canvas — shooting meteors, floating orbs, star field, player dot</div>
+          <div class="layer-sub">position: fixed · z-index: 1 · background: transparent · pointer-events: none</div>
+        </div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label">
+          <div class="layer-n" style="color:var(--gold);">Layer 1</div>
+          <div class="layer-name">Background</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-main">Static background-image (painted scene) + CSS aurora overlay gradients</div>
+          <div class="layer-sub">position: fixed · z-index: 0 · pointer-events: none · background-size: cover</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:1rem; font-size:.85rem; color:var(--text-muted);">
+      The center of the viewport is always world. UI lives at the four edges.
+    </p>
+  </div>
+
+  <!-- ── 2. Color System ─────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>2. Color System</h2>
+
+    <h3>Sky &amp; Ground</h3>
+    <div class="swatch-grid" style="margin-bottom:1.5rem;">
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#08061a;"></div>
+        <div class="swatch-info"><div class="swatch-name">Sky Base</div><div class="swatch-hex">#08061a</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#12103a;"></div>
+        <div class="swatch-info"><div class="swatch-name">Sky Mid</div><div class="swatch-hex">#12103a</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#2d1b69;"></div>
+        <div class="swatch-info"><div class="swatch-name">Aurora</div><div class="swatch-hex">#2d1b69</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:rgba(8,6,28,0.72); border-top:1px dashed rgba(130,100,220,.3);"></div>
+        <div class="swatch-info"><div class="swatch-name">Glass BG</div><div class="swatch-hex">rgba(8,6,28,.72)</div></div>
+      </div>
+    </div>
+
+    <h3>Accents &amp; Category Colors</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#8b6fd4;"></div>
+        <div class="swatch-info"><div class="swatch-name">Violet</div><div class="swatch-hex">#8b6fd4 · UI accent</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#f5c542;"></div>
+        <div class="swatch-info"><div class="swatch-name">Gold</div><div class="swatch-hex">#f5c542 · Light / stars</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#50c8dc;"></div>
+        <div class="swatch-info"><div class="swatch-name">Teal</div><div class="swatch-hex">#50c8dc · Moment</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#f472b6;"></div>
+        <div class="swatch-info"><div class="swatch-name">Rose</div><div class="swatch-hex">#f472b6 · Burden</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#4ade80;"></div>
+        <div class="swatch-info"><div class="swatch-name">Sage</div><div class="swatch-hex">#4ade80 · Garden</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#fb923c;"></div>
+        <div class="swatch-info"><div class="swatch-name">Amber</div><div class="swatch-hex">#fb923c · Lantern glow</div></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;">Glass Panel Recipe</h3>
+    <p>Every floating panel uses these exact properties — no variation:</p>
+    <div class="recipe-block">
+<pre><span class="cm">/* Every floating UI panel */</span>
+<span class="nb">.panel</span> {
+  <span class="kw">background</span>:       <span class="nu">rgba(8, 6, 28, 0.72)</span>;
+  <span class="kw">border</span>:           <span class="nu">1px solid rgba(130, 100, 220, 0.20)</span>;
+  <span class="kw">border-radius</span>:    <span class="nu">14px</span>;
+  <span class="kw">backdrop-filter</span>:  <span class="nu">blur(20px) saturate(1.4)</span>;
+  <span class="kw">box-shadow</span>:       <span class="nu">0 4px 32px rgba(0,0,0,.45),</span>
+                     <span class="nu">inset 0 1px 0 rgba(180,150,255,.08)</span>;
+}
+<span class="nb">.panel:hover</span> {
+  <span class="kw">border-color</span>:     <span class="nu">rgba(170, 140, 255, 0.35)</span>; <span class="cm">/* border brightens on hover */</span>
+}</pre>
+    </div>
+  </div>
+
+  <!-- ── 3. Typography ────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>3. Typography</h2>
+    <p>Two roles. No CDN fonts — both families are resident on every OS and unavailable to block:</p>
+    <div class="card" style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="text-align:left; padding:8px 12px; color:var(--text-muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;">Role</th>
+            <th style="text-align:left; padding:8px 12px; color:var(--text-muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;">Family</th>
+            <th style="text-align:left; padding:8px 12px; color:var(--text-muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;">Used For</th>
+            <th style="text-align:left; padding:8px 12px; color:var(--text-muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;">Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border-soft);">
+            <td style="padding:10px 12px; color:var(--text); font-weight:600;">Display</td>
+            <td style="padding:10px 12px;"><code>Palatino Linotype, Georgia, serif</code></td>
+            <td style="padding:10px 12px; color:var(--text-muted);">Panel headings, page titles</td>
+            <td style="padding:10px 12px; font-family:'Palatino Linotype',Georgia,serif; font-size:1.1rem; color:#eef0f8;">Active Meteors</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border-soft);">
+            <td style="padding:10px 12px; color:var(--text); font-weight:600;">Body</td>
+            <td style="padding:10px 12px;"><code>system-ui, -apple-system, Segoe UI</code></td>
+            <td style="padding:10px 12px; color:var(--text-muted);">All data, messages, descriptions</td>
+            <td style="padding:10px 12px; color:var(--text-muted);">I feel so overwhelmed lately.</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border-soft);">
+            <td style="padding:10px 12px; color:var(--text); font-weight:600;">Label</td>
+            <td style="padding:10px 12px;"><code>system-ui 700, +0.1em</code></td>
+            <td style="padding:10px 12px; color:var(--text-muted);">Tags, section headers, status</td>
+            <td style="padding:10px 12px; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted);">Ways to Respond</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px; color:var(--text); font-weight:600;">Mono</td>
+            <td style="padding:10px 12px;"><code>Menlo, Cascadia, Consolas</code></td>
+            <td style="padding:10px 12px; color:var(--text-muted);">CSS values, coords, debug</td>
+            <td style="padding:10px 12px; font-family:var(--font-mono); font-size:.75rem; color:var(--purple);">rgba(8,6,28,.72)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 4. Background Scene Strategy ──────────────────────────────────────── -->
+  <div class="section">
+    <h2>4. Background Scene Strategy</h2>
+
+    <div class="option-compare">
+      <div class="card" style="border-color:rgba(62,207,142,.3);">
+        <div class="badge badge-complete" style="margin-bottom:.75rem;">✓ Recommended</div>
+        <h3 style="margin-top:0;">Static image + CSS aurora</h3>
+        <p style="font-size:.875rem;">Generate the scene painting with Midjourney or DALL-E 3. Export at 1920×1080 WebP. CSS radial gradients layer the aurora color bloom on top. Canvas composites meteors and stars over it.</p>
+        <p style="font-size:.8rem; color:var(--text-muted); margin-top:.5rem;">Build time: 1–2 hrs · Quality: matches reference exactly</p>
+      </div>
+      <div class="card">
+        <div class="badge badge-planned" style="margin-bottom:.75rem;">Alternative</div>
+        <h3 style="margin-top:0;">Layered canvas scene</h3>
+        <p style="font-size:.875rem;">Build entire scene in Canvas 2D: gradient sky, silhouetted mountains + trees in bezier paths, water reflection with canvas transform, lantern glow with radial gradients.</p>
+        <p style="font-size:.8rem; color:var(--text-muted); margin-top:.5rem;">Build time: 2–3 weeks · Quality: stylized, not painterly</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;">Midjourney Prompt</h3>
+    <div class="midjourney-prompt">
+      <strong>Prompt:</strong><br>
+      fantasy night garden panorama, stone path with glowing lanterns, cherry blossom tree, waterfall, distant pagoda castle, reflective koi pond, purple flowers, fireflies, anime studio ghibli style, cinematic, wide angle, dark blue and deep purple night sky with aurora, warm lantern orange light, hyper-detailed, 16:9 --ar 16:9 --v 6
+    </div>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-top:.75rem;">
+      Run 4 variations, pick the strongest. Export as WebP (smaller than PNG, good browser support). The CSS aurora layers sit on top so the scene doesn't need to be perfect at the edges.
+    </p>
+  </div>
+
+  <!-- ── 5. Component Inventory ─────────────────────────────────────────── -->
+  <div class="section">
+    <h2>5. Component Inventory</h2>
+    <p>Every visible element from the reference image, mapped to its position, implementation detail, and current status.</p>
+
+    <div class="comp-grid" style="margin-top:1.5rem;">
+
+      <div class="comp-card">
+        <div class="comp-pos">Top Left</div>
+        <div class="comp-name">PlayerProfileCard</div>
+        <p class="comp-desc">Avatar circle, wanderer name, level badge, ✦ Light balance with gold icon. Fixed position, glassmorphism panel.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Top Center</div>
+        <div class="comp-name">Compass</div>
+        <p class="comp-desc">W · N · E cardinal letters, thin horizontal rule, subtle center notch. Minimal — decorative orientation cue only.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Top Right</div>
+        <div class="comp-name">NavIconBar</div>
+        <p class="comp-desc">Pill-shaped bar with 4 SVG icon buttons: Social, Journal, Write, Settings. 40×40px tap targets.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Left Edge</div>
+        <div class="comp-name">FeatureSidebar</div>
+        <p class="comp-desc">Vertical list of 6 features (Release, Meteors, Encounters, Acknowledge, Stars, Garden). Each row: colored icon + name + 1-line description. Active state adds left border accent.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Right Top</div>
+        <div class="comp-name">ActiveMeteorsPanel</div>
+        <p class="comp-desc">3 meteor preview cards with category color dot, message excerpt (2 lines), time ago. "View All" button. Scrollable if more than 3 entries.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Right Bottom</div>
+        <div class="comp-name">WaysToRespondPanel</div>
+        <p class="comp-desc">Replaces MeteorReadForm. 5 fixed response options with emoji icons. Slides in from right when player is near a meteor. Wooden-sign header aesthetic.</p>
+        <span class="comp-tag badge tag-redesign">Redesign</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Bottom Left</div>
+        <div class="comp-name">NotificationToast</div>
+        <p class="comp-desc">Gold ✦ icon + two-line message + relative time. Already exists — needs spacing, icon color, and slide-up animation upgrade.</p>
+        <span class="comp-tag badge tag-redesign">Redesign</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Bottom Center</div>
+        <div class="comp-name">ActionBar</div>
+        <p class="comp-desc">Pill tray: Map icon · Release (center, large circle, pulsing halo, ✦ icon, primary CTA) · Garden icon. Replaces current scattered HUD buttons.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Bottom Right</div>
+        <div class="comp-name">DailyLightCard</div>
+        <p class="comp-desc">🌿 icon, "Daily Light" heading, quest description ("Acknowledge a meteor"), "+11" reward badge, chevron button. Quest/reward prompt.</p>
+        <span class="comp-tag badge tag-new">New</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Canvas Layer</div>
+        <div class="comp-name">Renderer (upgraded)</div>
+        <p class="comp-desc">Canvas stays transparent. Background scene removed from renderer and moved to CSS. Add: shooting meteor trails with comet head + fading tail, floating orb pulse, firefly particles.</p>
+        <span class="comp-tag badge tag-redesign">Redesign</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Bottom Right Corner</div>
+        <div class="comp-name">OnlineIndicator</div>
+        <p class="comp-desc">👥 N · Online. Minimal, low-opacity. Upgrade from existing HUD debug text to a small styled pill.</p>
+        <span class="comp-tag badge tag-redesign">Redesign</span>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-pos">Modal</div>
+        <div class="comp-name">MeteorCreateForm</div>
+        <p class="comp-desc">Existing component — needs glass treatment, category selectors with colored glow borders, and animated entrance (scale-in from center). Content unchanged.</p>
+        <span class="comp-tag badge tag-redesign">Redesign</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 6. Animation Catalog ───────────────────────────────────────────── -->
+  <div class="section">
+    <h2>6. Animation Catalog</h2>
+
+    <div class="card" style="padding:0; overflow:hidden; overflow-x:auto;">
+      <table class="anim-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Layer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shooting meteor trail</td>
+            <td>Comet head (category-colored, 6px) with bezier trail (opacity 0→0.8→0, width 0→2px). Crosses screen diagonally over 3–6s, ease-out. Fires ~1 per 8–12s.</td>
+            <td>Canvas</td>
+          </tr>
+          <tr>
+            <td>Star field twinkle</td>
+            <td>Already implemented. Per-star sine-wave freq (0.3–1.7 Hz) and phase, color warm/cool variation, 4-pointed ✦ shape for brightest. Keep as-is.</td>
+            <td>Canvas ✓</td>
+          </tr>
+          <tr>
+            <td>Meteor orb pulse</td>
+            <td>Floating orbs breathe: scale 1→1.08→1 over 3s, glow radius expands. When player is near: border ring appears, brightness increases. Draws attention without distraction.</td>
+            <td>Canvas</td>
+          </tr>
+          <tr>
+            <td>Firefly particles</td>
+            <td>8–12 small amber dots (2px) drift in slow random paths near foreground. Opacity 0.3–0.7, no trail. Adds life to scene edges.</td>
+            <td>Canvas</td>
+          </tr>
+          <tr>
+            <td>Release button halo</td>
+            <td>Center Release circle: faint pulse ring expands 100%→130% radius, opacity 0.6→0 on loop, 2.5s. CSS animation on ::after pseudo-element.</td>
+            <td>CSS</td>
+          </tr>
+          <tr>
+            <td>Panel slide-in</td>
+            <td>Panels entering screen use translateX(24px)→0 + opacity 0→1, 300ms ease-out-expo. Exit reverses. Respects prefers-reduced-motion.</td>
+            <td>CSS</td>
+          </tr>
+          <tr>
+            <td>✦ Star transform</td>
+            <td>When a meteor becomes a star: scale burst (1→1.6→1), color shifts to gold, lens flare cross expands and fades over 800ms. Canvas burst + CSS toast fires simultaneously.</td>
+            <td>Canvas + CSS</td>
+          </tr>
+          <tr>
+            <td>Notification entrance</td>
+            <td>Toast slides up from bottom-left: translateY(16px)→0 + opacity 0→1 over 350ms, ease-out. Auto-dismiss at 4s with reverse. Upgrade existing timing curve.</td>
+            <td>CSS</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 7. Implementation Phases ───────────────────────────────────────── -->
+  <div class="section">
+    <h2>7. Implementation Phases</h2>
+    <p>Each phase produces something independently shippable and visually meaningful. Work in order.</p>
+
+    <div class="phase-grid" style="margin-top:1.5rem;">
+      <div class="phase-card">
+        <div class="phase-num">1</div>
+        <div class="phase-title">Design Tokens &amp; Glass</div>
+        <ul class="phase-items">
+          <li>CSS custom properties (colors, radius, blur)</li>
+          <li>globals.css full rewrite</li>
+          <li>.panel base class</li>
+          <li>Typography setup</li>
+          <li>Layer z-index contract</li>
+        </ul>
+        <div class="phase-days">2–3 days</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">2</div>
+        <div class="phase-title">Background Scene</div>
+        <ul class="phase-items">
+          <li>Generate scene image</li>
+          <li>CSS aurora overlay layers</li>
+          <li>Canvas background cleared</li>
+          <li>CSS z-index stack wired</li>
+          <li>Responsive background-size</li>
+        </ul>
+        <div class="phase-days">1–2 days</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">3</div>
+        <div class="phase-title">HUD Components</div>
+        <ul class="phase-items">
+          <li>PlayerProfileCard</li>
+          <li>Compass</li>
+          <li>NavIconBar</li>
+          <li>FeatureSidebar</li>
+          <li>ActionBar (Map/Release/Garden)</li>
+          <li>DailyLightCard</li>
+          <li>OnlineIndicator</li>
+        </ul>
+        <div class="phase-days">3–4 days</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">4</div>
+        <div class="phase-title">World Panels</div>
+        <ul class="phase-items">
+          <li>ActiveMeteorsPanel</li>
+          <li>WaysToRespondPanel</li>
+          <li>MeteorCreateForm redesign</li>
+          <li>NotificationToast upgrade</li>
+          <li>Canvas: meteor trails</li>
+          <li>Canvas: fireflies</li>
+          <li>Canvas: orb pulse</li>
+        </ul>
+        <div class="phase-days">3–4 days</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">5</div>
+        <div class="phase-title">Polish</div>
+        <ul class="phase-items">
+          <li>Panel entrance animations</li>
+          <li>Release halo pulse</li>
+          <li>Star transform burst</li>
+          <li>Hover states on all panels</li>
+          <li>prefers-reduced-motion pass</li>
+          <li>Mobile layout (tablet min)</li>
+        </ul>
+        <div class="phase-days">2–3 days</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <div style="font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-bottom:.4rem;">Total estimated build</div>
+        <div style="font-size:1.5rem; font-weight:700; color:#eef0f8;">11–16 days</div>
+        <div style="font-size:.8rem; color:var(--text-muted); margin-top:.2rem;">From fresh branch to production-quality UI</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-bottom:.4rem;">Phase order</div>
+        <div style="font-size:.9rem; color:var(--blue);">Tokens → Background → HUD → World Panels → Polish</div>
+        <div style="font-size:.75rem; color:var(--text-muted); margin-top:.2rem;">Each phase shippable independently</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 8. Asset Requirements ──────────────────────────────────────────── -->
+  <div class="section">
+    <h2>8. Asset Requirements</h2>
+    <p>What must be created or sourced before each phase can complete:</p>
+
+    <div class="card" style="padding:0 1.5rem;">
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">🖼</div>
+        <div>
+          <div class="asset-text">Background scene painting</div>
+          <div class="asset-sub">1920×1080 WebP. Night garden, pagoda, cherry blossom, waterfall, lanterns. Generate with Midjourney using the prompt in section 4.</div>
+        </div>
+        <span class="badge" style="background:rgba(245,158,11,.1);color:var(--orange);border:1px solid rgba(245,158,11,.2);">Generate</span>
+      </div>
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">👤</div>
+        <div>
+          <div class="asset-text">Player character sprite</div>
+          <div class="asset-sub">Girl in purple cloak, from behind, 128×192px PNG with transparency. Midjourney-extracted or SVG art. Positioned center-bottom over canvas.</div>
+        </div>
+        <span class="badge" style="background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2);">Illustrate</span>
+      </div>
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">🔮</div>
+        <div>
+          <div class="asset-text">Feature sidebar icons</div>
+          <div class="asset-sub">6 SVG icons: lotus, meteor, eye, heart, star, leaf — each 20×20px. Source from Lucide, Phosphor, or custom. Color via CSS currentColor.</div>
+        </div>
+        <span class="badge badge-next">OSS / Code</span>
+      </div>
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">🗺</div>
+        <div>
+          <div class="asset-text">Action bar icons</div>
+          <div class="asset-sub">Map, ✦ sparkle (Release), leaf (Garden). SVG inline. Already partially in use — need visual upgrade pass.</div>
+        </div>
+        <span class="badge badge-next">Code</span>
+      </div>
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">🌐</div>
+        <div>
+          <div class="asset-text">Nav bar icons</div>
+          <div class="asset-sub">Social/people, open book, feather/pen, settings gear. 24×24px SVG. Sourceable from Lucide Icons (MIT licensed).</div>
+        </div>
+        <span class="badge badge-next">OSS / Code</span>
+      </div>
+      <div class="asset-row">
+        <div style="font-size:1.3rem;">🐱</div>
+        <div>
+          <div class="asset-text">Cat companion sprite <em style="color:var(--text-muted);">(optional)</em></div>
+          <div class="asset-sub">Black cat silhouette, 64×48px PNG. Sits beside player character. Adds warmth. Low priority — can ship without.</div>
+        </div>
+        <span class="badge badge-planned">Optional</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</body>
+</html>

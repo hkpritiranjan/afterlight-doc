@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afterlight — Player Guide</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .guide-step {
+      display: flex;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: rgba(91,156,246,0.15);
+      border: 1px solid rgba(91,156,246,0.35);
+      color: var(--blue);
+      font-size: .85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-body { flex: 1; }
+    .step-body strong { display: block; margin-bottom: .25rem; color: var(--text); }
+    .step-body p { margin: 0; color: var(--text-muted); font-size: .95rem; }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-top: .75rem;
+    }
+    .category-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: .9rem 1rem;
+    }
+    .category-card .cat-name {
+      font-weight: 700;
+      font-size: .9rem;
+      margin-bottom: .3rem;
+    }
+    .category-card p { margin: 0; font-size: .85rem; color: var(--text-muted); }
+
+    .cat-burden  .cat-name { color: #e05050; }
+    .cat-moment  .cat-name { color: #50c8dc; }
+    .cat-hope    .cat-name { color: #64dc78; }
+    .cat-gratitude .cat-name { color: #f5c542; }
+
+    .response-list {
+      list-style: none;
+      padding: 0;
+      margin: .75rem 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .response-list li {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: .65rem 1rem;
+      color: var(--text-muted);
+      font-size: .9rem;
+      font-style: italic;
+    }
+
+    .visual-demo {
+      background: #070912;
+      border: 1px solid rgba(91,156,246,0.15);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      font-family: monospace;
+      font-size: .85rem;
+      color: rgba(200,220,255,0.7);
+      line-height: 1.8;
+    }
+    .visual-demo .label {
+      color: rgba(200,220,255,0.35);
+      font-size: .75rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+
+    .callout {
+      background: rgba(91,156,246,0.07);
+      border-left: 3px solid rgba(91,156,246,0.4);
+      border-radius: 0 6px 6px 0;
+      padding: .85rem 1.1rem;
+      margin: 1rem 0;
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+    .callout strong { color: var(--text); }
+
+    .callout-warm {
+      background: rgba(245,197,66,0.07);
+      border-left-color: rgba(245,197,66,0.4);
+    }
+    .callout-safety {
+      background: rgba(248,113,113,0.07);
+      border-left-color: rgba(248,113,113,0.4);
+    }
+
+    .keys {
+      display: inline-flex;
+      gap: .3rem;
+      align-items: center;
+    }
+    kbd {
+      display: inline-block;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: monospace;
+      font-size: .82rem;
+      color: var(--text);
+    }
+
+    @media (max-width: 600px) {
+      .category-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-brand">✦ Afterlight <span>docs</span></a>
+  <a href="index.html">Overview</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="stages.html">Stages</a>
+  <a href="interview.html">Interview Q&amp;A</a>
+  <a href="guide.html" class="active">Player Guide</a>
+  <a href="ui-design.html">UI Design</a>
+</nav>
+
+<div class="page">
+<div class="container">
+
+  <div class="hero" style="padding-bottom:2rem">
+    <div class="hero-tag">For New Players</div>
+    <h1>Your first visit to Afterlight</h1>
+    <p class="subtitle">You don't need to understand everything. Just walk, and see what you find.</p>
+  </div>
+
+  <!-- What is Afterlight -->
+  <div class="section">
+    <h2>What is Afterlight?</h2>
+    <p>
+      Afterlight is a quiet, anonymous multiplayer world. You appear as a small glowing orb drifting through a night sky shared with other real people. You can't see their names. They can't see yours.
+    </p>
+    <p>
+      The only thing you can do here is leave something — and find something left by someone else.
+    </p>
+    <p>
+      When you leave a message, it becomes a <strong>meteor</strong>: a glowing object floating in the world. Anyone who passes by can read it. If they choose to acknowledge it, the meteor transforms permanently into a <strong>star</strong>. You — the person who wrote it — receive a single quiet notification:
+    </p>
+    <div class="visual-demo">
+      <div class="label">What you see</div>
+      ✦ &nbsp; Someone heard you.
+    </div>
+    <p>
+      That's the whole point. Something you were carrying alone, even briefly, was witnessed by another person.
+    </p>
+  </div>
+
+  <!-- The world -->
+  <div class="section">
+    <h2>What you see when you open the game</h2>
+    <p>
+      The screen fills with a dark night sky — subtle stars, a faint grid, the soft glow of the world's edge. Your player is the small <strong>bright white-blue orb</strong> at the center.
+    </p>
+    <p>
+      Other players appear as <strong>soft lavender orbs</strong>, moving in real time. You won't know who they are.
+    </p>
+    <p>
+      Scattered around you are <strong>golden glowing circles</strong> — these are the places where you can release a meteor. Walk toward one and it will brighten as you get close.
+    </p>
+
+    <div class="visual-demo">
+      <div class="label">What you'll see on screen</div>
+      &nbsp;&nbsp;○ &nbsp;— lavender orb (another player)<br>
+      &nbsp;&nbsp;● &nbsp;— bright white orb (you)<br>
+      &nbsp;&nbsp;◎ &nbsp;— golden dashed circle (creation zone — press E when near)<br>
+      &nbsp;&nbsp;✦ &nbsp;— soft colored glow (a meteor someone left)<br>
+      &nbsp;&nbsp;· &nbsp;&nbsp;— small bright point (a star — a meteor that was acknowledged)
+    </div>
+  </div>
+
+  <!-- Moving around -->
+  <div class="section">
+    <h2>Moving around</h2>
+    <p>Use your keyboard to move. Hold keys to walk, combine for diagonal movement.</p>
+    <div class="card" style="margin-top:.75rem">
+      <table>
+        <thead>
+          <tr><th>Keys</th><th>Movement</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="keys"><kbd>W</kbd> or <kbd>↑</kbd></span></td><td>Up</td></tr>
+          <tr><td><span class="keys"><kbd>S</kbd> or <kbd>↓</kbd></span></td><td>Down</td></tr>
+          <tr><td><span class="keys"><kbd>A</kbd> or <kbd>←</kbd></span></td><td>Left</td></tr>
+          <tr><td><span class="keys"><kbd>D</kbd> or <kbd>→</kbd></span></td><td>Right</td></tr>
+          <tr><td><span class="keys"><kbd>E</kbd></span></td><td>Interact — open a zone or read a meteor</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:1rem">
+      <strong>The world is large.</strong> Take your time. There's no timer, no score, no penalty for exploring slowly.
+    </div>
+  </div>
+
+  <!-- Sharing a meteor -->
+  <div class="section">
+    <h2>How to share a meteor</h2>
+    <p>Meteors are how you speak in Afterlight. Your message is anonymous — no name, no profile, just words.</p>
+
+    <div class="guide-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Walk to a golden circle</strong>
+        <p>These are scattered around the world from where you start. Walk toward one — it will brighten as you get close. A prompt appears: <em>Press E to create meteor.</em></p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Press E to open the form</strong>
+        <p>A small panel appears over the game. The world keeps running underneath — other players can still move while you write.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Choose a category</strong>
+        <p>Pick the one that fits what you're carrying. It doesn't need to be exact.</p>
+        <div class="category-grid">
+          <div class="category-card cat-burden">
+            <div class="cat-name">Burden</div>
+            <p>Something heavy. A worry, a fear, a thing you've been holding.</p>
+          </div>
+          <div class="category-card cat-moment">
+            <div class="cat-name">Moment</div>
+            <p>Something that happened. A memory, an observation, a fragment of a day.</p>
+          </div>
+          <div class="category-card cat-hope">
+            <div class="cat-name">Hope</div>
+            <p>Something you're reaching toward. A wish, a possibility, a small belief.</p>
+          </div>
+          <div class="category-card cat-gratitude">
+            <div class="cat-name">Gratitude</div>
+            <p>Something you're glad exists. A person, a feeling, a quiet thing.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Write your message (up to 280 characters)</strong>
+        <p>Write whatever feels true. It doesn't need to be polished. No one will know it was you.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Click Release</strong>
+        <p>The form closes. A glowing meteor — colored by category — appears in the world at your position. Every connected player can now see it and walk toward it.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-warm">
+      <strong>Your message is anonymous.</strong> No username, no avatar name, no profile is attached to it. Other players see only the category and the words.
+    </div>
+  </div>
+
+  <!-- Acknowledging -->
+  <div class="section">
+    <h2>How to acknowledge someone else's meteor</h2>
+    <p>When you find a meteor, you can choose to respond to it. This is the most meaningful action in Afterlight.</p>
+
+    <div class="guide-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Walk toward a colored glow</strong>
+        <p>Meteors appear as small glowing orbs — red for Burden, cyan for Moment, green for Hope, gold for Gratitude. When you're close, a prompt appears: <em>Press E to read.</em></p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Press E to read it</strong>
+        <p>A panel shows the category and the message. Take a moment to read it.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Choose how to respond</strong>
+        <p>Five responses are available. Pick the one that feels honest.</p>
+        <ul class="response-list">
+          <li>I feel this too.</li>
+          <li>You're not alone.</li>
+          <li>I hope things get lighter.</li>
+          <li>Take it one day at a time.</li>
+          <li>I'm glad you shared this.</li>
+        </ul>
+        <p style="margin-top:.75rem;font-size:.9rem;color:var(--text-muted)">
+          Or close the panel with <em>Pass by</em> — you don't have to respond to everything.
+        </p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>The meteor transforms</strong>
+        <p>The colored glow disappears. A small golden star appears in its place — permanently. Every connected player sees this happen in real time.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- What happens after -->
+  <div class="section">
+    <h2>What happens after an acknowledgment</h2>
+
+    <div class="two-col" style="margin-top:.5rem">
+      <div class="principle">
+        <strong>The writer sees</strong>
+        <p style="margin:.4rem 0 0;font-size:.9rem;color:var(--text-muted)">A notification appears at the top of their screen: <em>"Someone heard you."</em> They don't know who. They don't need to.</p>
+      </div>
+      <div class="principle">
+        <strong>You receive Light</strong>
+        <p style="margin:.4rem 0 0;font-size:.9rem;color:var(--text-muted)">A small <em>✦ 1 Light</em> counter appears in your bottom-right corner. Light is earned by witnessing others — it will be used in future stages to grow a personal space.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:1.25rem">
+      <strong>One acknowledgment is enough.</strong> The first response transforms a meteor into a star. The writer's message has been heard — that's complete.
+      You cannot acknowledge your own meteor, and you cannot acknowledge the same meteor twice.
+    </div>
+  </div>
+
+  <!-- Light -->
+  <div class="section">
+    <h2>What is Light?</h2>
+    <p>
+      Light is a quiet resource you earn by acknowledging other players' meteors. Every time you witness something another person shared — and choose to respond — you earn <strong>✦ 1 Light</strong>.
+    </p>
+    <p>
+      Light is not a score. It won't be shown to other players. There's no leaderboard, no rank, no badge for earning the most. It's simply a record of moments when you showed up for someone.
+    </p>
+    <p>
+      In a future stage, Light will be used to grow your own personal space inside the world — a small garden you can shape and add to over time.
+    </p>
+  </div>
+
+  <!-- Stars -->
+  <div class="section">
+    <h2>What are stars?</h2>
+    <p>
+      Stars are permanent. Once a meteor becomes a star, it stays in the world. Every player who joins — now or in the future — will see it when they pass through that part of the sky.
+    </p>
+    <p>
+      A star means: <em>this was said, and someone heard it.</em> That's what it records. Not who said it, not who heard it — just the fact that the exchange happened.
+    </p>
+    <p>
+      Over time, the world fills with stars. The night sky you're walking through was shaped by real people who were here before you.
+    </p>
+  </div>
+
+  <!-- Tips -->
+  <div class="section">
+    <h2>A few things to know</h2>
+    <div class="card">
+      <ul>
+        <li><strong>You're anonymous to everyone, including the server team.</strong> There are no accounts, no profiles, no login. You are identified only by a temporary session token stored in your browser.</li>
+        <li><strong>Each browser tab is a separate player.</strong> If you open two tabs, they are treated as two different people. This is intentional — it lets you test the full loop locally without needing a second device.</li>
+        <li><strong>Refreshing the page reconnects you</strong> to the same anonymous session. Your identity persists within the same browser tab until you close it.</li>
+        <li><strong>Content is not editable or deletable</strong> once released, in the current stage. Safety hardening — including a report flow — is planned for Stage 5 before any public release.</li>
+        <li><strong>You can pass by any meteor.</strong> Acknowledging is a choice, not a requirement. Walking past something is fine.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- What it is not -->
+  <div class="section">
+    <h2>What Afterlight is not</h2>
+    <div class="callout callout-safety">
+      <strong>Afterlight is not a mental health service.</strong>
+      It is not therapy, crisis counseling, or a substitute for professional care.
+      It does not provide advice, diagnosis, or treatment.
+    </div>
+    <p>
+      If you or someone you know is in crisis, please reach out to a qualified professional or a crisis line in your region.
+    </p>
+    <p>
+      Afterlight is a game about gentle, anonymous expression — the kind of thing you might write in a notebook, or say quietly to yourself. The "Someone heard you" moment is real, but it comes from another anonymous player, not a trained counselor.
+    </p>
+    <p>
+      Content that describes immediate risk to life is blocked by the server before it ever becomes visible in the world.
+    </p>
+  </div>
+
+  <div class="section" style="text-align:center;padding-bottom:2rem">
+    <p style="color:var(--text-muted);margin-bottom:1.5rem">Ready to see for yourself?</p>
+    <div class="loop-row">
+      <span class="loop-step">Walk</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Find a zone</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Press E</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Release</span>
+      <span class="loop-arrow">→</span>
+      <span class="loop-step">Someone hears you</span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer>Afterlight &mdash; Player Guide &mdash; Stage 3</footer>
+</body>
+</html>
